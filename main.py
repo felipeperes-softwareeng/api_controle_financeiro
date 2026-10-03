@@ -43,17 +43,34 @@ def inicio():
     return {"mensagem": "API de Controle Financeiro"} #Retorna msg em JSON
 
 @app.get("/transacoes") 
-def listar_transacoes(): #lista todas as transacoes
-    return transacoes
+def listar_transacoes(db: Session = Depends(get_db)): #lista todas as transacoes
+
+    transacoes_banco = db.query(TransacaoModel).all()
+
+    return[
+        {
+            "id": transacao.id,
+            "descricao": transacao.descricao,
+            "valor": transacao.valor,
+            "tipo": transacao.tipo
+        }
+        for transacao in transacoes_banco
+    ]
 
 @app.get("/transacoes/{id}") 
-def buscar_transacao(id: int): #Busca uma transacao pelo id e caso nao ache retorna transacao nao encointrada
+def buscar_transacao(id: int, db: Session = Depends(get_db)):  #Busca uma transacao pelo id e caso nao ache retorna transacao nao encointrada
 
-    for transacao in transacoes:
-        if transacao["id"] == id:
-            return transacao
+    transacao = db.query(TransacaoModel).filter(TransacaoModel.id == id).first()
+    
+    if transacao is None:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
 
-    raise HTTPException(status_code=404, detail = "Transação não encontrada")
+    return {
+        "id": transacao.id,
+        "descricao": transacao.descricao,
+        "valor": transacao.valor,
+        "tipo": transacao.tipo
+    }
 
 @app.delete("/transacoes/{id}")
 def deletar_transacao(id: int): #Deleta transacao pelo id e se nao encontrada retorna transacoa nao encontrada
