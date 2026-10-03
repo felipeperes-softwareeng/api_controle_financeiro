@@ -1,12 +1,27 @@
-from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+from typing import Literal
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
+
+from database import engine, SessionLocal
+from models import Base, TransacaoModel
+
+Base.metadata.create_all(bind = engine) # Verifica os modelos que herdam na "Base" e cria a tabela no database caso nao existam 
 
 app = FastAPI() #Cria a aplicação
 
+def get_db(): #Cria e controla uma sessao com o banco de dados
+    db = SessionLocal() #Abre uma nova sessao
+
+    try:
+        yield db
+    finally:
+        db.close()
+
 class Transacao(BaseModel): #Cria o modelo de dados de uma transacao
     descricao: str
-    valor: float
-    tipo: str
+    valor: float = Field(gt=0) #o Field(gt=0) significa que o valor obrigatoriamente deve ser maior que 0
+    tipo: Literal["receita", "despesa"] #Significa que o campo "tipo" aceita apenas: despesa e receita
 
 transacoes = [
     {
@@ -51,22 +66,24 @@ def deletar_transacao(id: int): #Deleta transacao pelo id e se nao encontrada re
     raise HTTPException(status_code=404, detail = "Transação não encontrada")
 
 @app.post("/transacoes") #Cria rota post para receber uma nova transacao
-def criar_transacao(transacao: Transacao):
+def criar_transacao(transacao: Transacao, db: Session = Depends(get_db)):
 
-    if transacoes:
-        novo_id = max(transacao["id"] for transacao in transacoes) + 1
-    else:
-        novo_id = 1
+    nova_transacao = TransacaoModel(
+        descricao = transacao.descricao,
+        valor = transacao.valor,
+        tipo = transacao.tipo
+    )
 
-    nova_transacao = {
-        "id": novo_id,
-        "descricao": transacao.descricao,
-        "valor": transacao.valor,
-        "tipo": transacao.tipo
+    db.add(nova_transacao)
+    db.commit()
+    db.refresh(nova_transacao)
+
+    return {
+        "id": nova_transacao.id,
+        "descricao": nova_transacao.descricao,
+        "valor": nova_transacao.valor,
+        "tipo": nova_transacao.tipo
     }
-
-    transacoes.append(nova_transacao)
-    return nova_transacao
 
 @app.put("/transacoes/{id}")
 def atualizar_transacao(id: int, transacao: Transacao):
