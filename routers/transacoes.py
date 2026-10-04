@@ -52,6 +52,35 @@ def listar_transacoes(
     ]
 
 
+# Busca uma transação específica pelo ID
+@router.get("/{id}")
+def buscar_transacao(
+    id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(verificar_token)
+):
+
+    transacao = db.query(TransacaoModel).filter(
+        TransacaoModel.id == id,
+        TransacaoModel.usuario_id == usuario_id
+    ).first()
+
+    if transacao is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transação não encontrada"
+        )
+
+    return {
+        "id": transacao.id,
+        "descricao": transacao.descricao,
+        "valor": transacao.valor,
+        "tipo": transacao.tipo,
+        "categoria_id": transacao.categoria_id,
+        "categoria": transacao.categoria.nome
+    }
+
+
 # Cria uma nova transação
 @router.post("/")
 def criar_transacao(
