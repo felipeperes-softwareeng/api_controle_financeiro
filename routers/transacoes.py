@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import Literal
 
 from database import get_db
 from models import TransacaoModel, CategoriaModel
@@ -16,13 +17,27 @@ router = APIRouter(
 # Lista todas as transações cadastradas
 @router.get("/")
 def listar_transacoes(
+    tipo: Literal["receita", "despesa"] | None = None,
+    categoria_id: int | None = None,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(verificar_token)
 ):
 
-    transacoes_banco = db.query(TransacaoModel).filter(
+    consulta = db.query(TransacaoModel).filter(
         TransacaoModel.usuario_id == usuario_id
-    ).all()
+    )
+
+    if tipo is not None:
+        consulta = consulta.filter(
+            TransacaoModel.tipo == tipo
+        )
+
+    if categoria_id is not None:
+        consulta = consulta.filter(
+            TransacaoModel.categoria_id == categoria_id
+        )
+
+    transacoes_banco = consulta.all()
 
     return [
         {
@@ -35,35 +50,6 @@ def listar_transacoes(
         }
         for transacao in transacoes_banco
     ]
-
-
-# Busca uma transação específica pelo ID
-@router.get("/{id}")
-def buscar_transacao(
-    id: int,
-    db: Session = Depends(get_db),
-    usuario_id: int = Depends(verificar_token)
-):
-
-    transacao = db.query(TransacaoModel).filter(
-        TransacaoModel.id == id,
-        TransacaoModel.usuario_id == usuario_id
-    ).first()
-
-    if transacao is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Transação não encontrada"
-        )
-
-    return {
-        "id": transacao.id,
-        "descricao": transacao.descricao,
-        "valor": transacao.valor,
-        "tipo": transacao.tipo,
-        "categoria_id": transacao.categoria_id,
-        "categoria": transacao.categoria.nome
-    }
 
 
 # Cria uma nova transação
