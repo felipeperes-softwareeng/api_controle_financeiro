@@ -15,3 +15,11 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base() # Cria a classe usada pelos modelos/tabelas
+
+def get_db(): #Cria e controla uma sessão com o banco
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
