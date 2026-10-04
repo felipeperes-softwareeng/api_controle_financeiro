@@ -89,6 +89,17 @@ def atualizar_categoria(id: int, categoria: Categoria, db: Session = Depends(get
             detail="Categoria não encontrada"
         )
 
+    categoria_existente = db.query(CategoriaModel).filter(
+        CategoriaModel.nome == categoria.nome,
+        CategoriaModel.id != id
+    ).first()
+
+    if categoria_existente:
+        raise HTTPException(
+            status_code=400,
+            detail="Categoria já cadastrada"
+        )
+
     categoria_banco.nome = categoria.nome
 
     db.commit()
@@ -112,6 +123,13 @@ def deletar_categoria(id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=404,
             detail="Categoria não encontrada"
+        )
+
+    # Impede excluir uma categoria que possui transações
+    if categoria.transacoes:
+        raise HTTPException(
+            status_code=400,
+            detail="Categoria possui transações cadastradas"
         )
 
     db.delete(categoria)
